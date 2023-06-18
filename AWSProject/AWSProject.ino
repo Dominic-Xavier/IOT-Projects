@@ -45,10 +45,10 @@ void connectAWS()
     delay(100);
   }
 
-  // if(!client.connected()){
-  //   Serial.println("AWS IoT Timeout!");
-  //   return;
-  // }
+  if(!client.connected()){
+    Serial.println("AWS IoT Timeout!");
+    return;
+  }
   
   Serial.println("AWS IoT Connected!");
 }
@@ -109,10 +109,10 @@ void setup() {
 }
 
 void loop() {
-  publishMessage();
   if (!client.connected()) {
     reconnect();
   }
+  publishMessage();
   client.loop();
   delay(5000);
 }
