@@ -1,9 +1,9 @@
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <Espalexa.h>
 
-#define wifiLed D6
-#define RelayPin1 D7
-#define buzzer D8
+const char wifiLed = 'D6';
+const char RelayPin1 = 'D7';
+const char buzzer = 'D8';
 
 Espalexa espalexa;
 
