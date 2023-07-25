@@ -10,7 +10,7 @@ PubSubClient client(net);
 char msg[BUFFER_LEN];
 char mac_Id[18];
 byte mac[6];
-int FLOATING_SENSOR = 4, relay=13;
+int FLOATING_SENSOR = 4;
 
 const char SUBSCRIBE_TOPIC[] = "WATER_TANK_STATUS";
 const char PUBLISH_TOPIC[] = "iot/WATER_TANK";
@@ -75,7 +75,7 @@ void publishMessage() {
   float h = 30.2;
   //String waterTankStatus = status;
   String macIdStr = mac_Id;
-  
+  String status = "FULL";
 
   String Temprature = String(t);
   String Humidity = String(h);
@@ -89,37 +89,15 @@ void publishMessage() {
   Serial.println(msg);
   
   client.publish(PUBLISH_TOPIC, msg);
-  delay(1000);
 }
 
 void messageHandler(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
-
-  StaticJsonDocument<200> doc;
-  deserializeJson(doc, payload);
-  const char* message = doc["Status"];
-  Serial.println(message);
-
-  String status = message;
-
-
-
-  if(status=="Full"){
-    Serial.println("Turning Relay Off");
-    digitalWrite(relay, HIGH);
-  }
-  else if(status=="Empty"){
-    Serial.println("Turning Relay on...!");
-    digitalWrite(relay, LOW);
-  }
-
-
-  /*for (int i = 0; i < length; i++) {
+  for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
-  }*/
-    
+  }
   Serial.println();
 
   //Serial.println(payload);
@@ -138,7 +116,7 @@ void reconnect() {
       // Once connected, publish an announcement...
       client.publish(PUBLISH_TOPIC, "hello world");
       // ... and resubscribe
-      client.subscribe(SUBSCRIBE_TOPIC);
+      client.subscribe("SUBSCRIBE_TOPIC");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -152,15 +130,15 @@ void reconnect() {
 void setup() {
   Serial.begin(115200);
   pinMode(FLOATING_SENSOR, INPUT);
-  pinMode(relay, OUTPUT);
-  digitalWrite(relay, LOW);
   connectAWS();
 }
 
 void loop() {
-  if (!client.connected())
+  if (!client.connected()) {
     reconnect();
+  }
+
   //publishMessage();
   client.loop();
-  //delay(1000);
+  delay(5000);
 }

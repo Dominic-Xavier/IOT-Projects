@@ -1,8 +1,8 @@
 #include <WiFi.h>
 #include <Espalexa.h>
 
-const char wifiLed = 'D6';
-const char RelayPin1 = 'D7';
+const char wifiLed = 'D7';
+const char RelayPin1 = 'D6';
 const char buzzer = 'D8';
 
 Espalexa espalexa;
