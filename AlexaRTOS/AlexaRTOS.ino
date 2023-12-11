@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include <Espalexa.h>
 #include <IRsend.h>
+#include <IRrecv.h>
 
 #include <IRremoteESP8266.h>
 #include "DHT.h"
@@ -36,9 +37,11 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 //const int wifiLed = 27;
 const int FAN  = 5;
-const int light = 26, /*FAN = 13, */FanRelay = 4, AC =  18;
-const int pirPin = 12, DHTPIN = 14;
-const int IrReceiver = 27;
+const int light = 12, /*FAN = 13, */FanRelay = 18, AC =  4;
+const int pirPin = 13, DHTPIN = 14;
+const int IrReceivers = 15;
+const int ldr = 32;
+int readLDRValue=0, count = 0;
 //const uint16_t FanOnOff = 0xCF8976;
 
 DHT dht(DHTPIN, DHTTYPE);
@@ -46,13 +49,14 @@ DHT dht(DHTPIN, DHTTYPE);
 Espalexa espalexa;
 
 IRsend irsend(FAN);
+IRrecv irrecv(IrReceivers);
+decode_results results;
 
 // device names
 String Device_1_Name = "Light";
 String Device_2_Name = "Fan";
 String Device_4_Name = "FanRelay";
 String Device_5_Name = "AC";
-String Device_6_Name = "Relay2";
 
 boolean wifiConnected = false;
 
@@ -234,12 +238,24 @@ void atombergFan(uint8_t brightness) {
 }
 
 void PIRSensor() {
+  readLDRValue = analogRead(ldr);
+  Serial.println("LDR value");
+  Serial.println(readLDRValue);
   if (digitalRead(pirPin) == HIGH) {
-    digitalWrite(light, HIGH);
-    Serial.println("Pir On");
+    if(readLDRValue>800){
+      digitalWrite(light, HIGH);
+      //irsend.sendRaw(FanOnOff, 71, 38);
+      Serial.println("Pir On");
+    }
+    else{
+      digitalWrite(light, LOW);
+      Serial.println("Pir On But Light is off");
+    }
+    Serial.println(readLDRValue);
   }
   if (digitalRead(pirPin) == LOW) {
     digitalWrite(light, LOW);
+    //irsend.sendRaw(FanOnOff, 71, 38);
     Serial.println("Pir Off");
   }
 }
@@ -260,7 +276,7 @@ void displayData(double humidity, double temperature) {
   display.clearDisplay();  // Clear the buffer
 
   // Text settings
-  display.setTextSize(1);               // Normal text size
+  display.setTextSize(2);               // Normal text size
   display.setTextColor(SSD1306_WHITE);  // White text color
   display.setCursor(0, 2);              // Start at top-left corner
   display.println("Temp :");
@@ -295,14 +311,19 @@ void dhtSensor() {
   displayData(h, hic);
 }
 
-void irReceiver() {
-  
+void irReceive() {
+  if (irrecv.decode(&results)) {
+    Serial.println("ir sIGNAL received...!");
+    irrecv.resume();  // Receive the next value
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+  }
 }
 
 
 void setup() {
   Serial.begin(115200);
   irsend.begin();
+  irrecv.enableIRIn();  // Start the receiver
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
     Serial.println(F("SSD1306 allocation failed"));
     for(;;);
@@ -317,7 +338,8 @@ void setup() {
   pinMode(AC, OUTPUT);
   pinMode(pirPin, INPUT);
   pinMode(DHTPIN, INPUT);
-  pinMode(IrReceiver, INPUT);
+  //pinMode(IrReceivers, INPUT);
+  pinMode(ldr, INPUT);
   // Initialise wifi connection
   wifiConnected = connectWifi();
 
@@ -331,42 +353,50 @@ void setup() {
   xTaskCreatePinnedToCore(//Use xTaskCreate in Venilla RTOS
     dhtMethod,             //Function name to be called
     "DHT",                //Name of the Task
-    1028,                 //Stack Size (bytes in Esp32 , words in freeRTOS)
+    1500,                 //Stack Size (bytes in Esp32 , words in freeRTOS)
     NULL,                 //Parameter
     1,                    //Task Priority
     NULL,                 //Task Handle           
-    1);                   //Run on core ID
-
-    xTaskCreatePinnedToCore(//Use xTaskCreate in Venilla RTOS
-    iRreceiver,             //Function name to be called
-    "IR Sensor",                //Name of the Task
-    1028,                 //Stack Size (bytes in Esp32 , words in freeRTOS)
-    NULL,                 //Parameter
-    2,                    //Task Priority
-    NULL,                 //Task Handle           
-    1);                   //Run on core ID
-
-    xTaskCreatePinnedToCore(//Use xTaskCreate in Venilla RTOS
-    pir,                  //Function name to be called
-    "PIR Sensor",                //Name of the Task
-    1028,                 //Stack Size (bytes in Esp32 , words in freeRTOS)
-    NULL,                 //Parameter
-    3,                    //Task Priority
-    NULL,                 //Task Handle           
-    1);                   //Run on core ID
-
-    xTaskCreatePinnedToCore(//Use xTaskCreate in Venilla RTOS
-    alexa,                  //Function name to be called
-    "PIR Sensor",                //Name of the Task
-    1028,                 //Stack Size (bytes in Esp32 , words in freeRTOS)
-    NULL,                 //Parameter
-    2,                    //Task Priority
-    NULL,                 //Task Handle           
     0);                   //Run on core ID
+
+    xTaskCreatePinnedToCore( //Use xTaskCreate in Venilla RTOS
+    iRreceiver,              //Function name to be called
+    "IR Sensor",             //Name of the Task
+    1500,                    //Stack Size (bytes in Esp32 , words in freeRTOS)
+    NULL,                    //Parameter
+    1,                       //Task Priority
+    NULL,                    //Task Handle           
+    1);                      //Run on core ID
+
+    xTaskCreatePinnedToCore(    //Use xTaskCreate in Venilla RTOS
+    pir,                        //Function name to be called
+    "PIR Sensor",               //Name of the Task
+    1028,                       //Stack Size (bytes in Esp32 , words in freeRTOS)
+    NULL,                       //Parameter
+    3,                          //Task Priority
+    NULL,                       //Task Handle           
+    0);                         //Run on core ID
+
+    // xTaskCreatePinnedToCore(//Use xTaskCreate in Venilla RTOS
+    // alexa,                  //Function name to be called
+    // "Alexa",                //Name of the Task
+    // 3000,                 //Stack Size (bytes in Esp32 , words in freeRTOS)
+    // NULL,                 //Parameter
+    // 2,                    //Task Priority
+    // NULL,                 //Task Handle           
+    // 1);                   //Run on core ID
+
 }
 
 void alexa(void *pvParameters){
-  if (wifiConnected) {
+  // if (wifiConnected)
+  //   addDevices();
+  // else {
+  //   Serial.println("Cannot connect to WiFi. So in Manual Mode");
+  //   delay(1000);
+  //}
+  
+    if (wifiConnected) {
     espalexa.loop();
     //digitalWrite(wifiLed, HIGH);
     delay(1);
@@ -376,11 +406,39 @@ void alexa(void *pvParameters){
       wifiConnected = connectWifi();  // Initialise wifi connection
     if (wifiConnected)
       addDevices();   
-  }
+    }
 }
 
-void loop() {
-  //alexa(nullptr);
+void alexa(){
+  // if (wifiConnected)
+  //   addDevices();
+  // else {
+  //   Serial.println("Cannot connect to WiFi. So in Manual Mode");
+  //   delay(1000);
+  //}
+  if(WiFi.status() != WL_CONNECTED){
+    wifiConnected = connectWifi();
+  }
+  if (wifiConnected) {
+    if(count<1){
+      displayData("WiFi Connected....!");
+      displayData(WIFI_SSID);
+      count++;
+    }
+    espalexa.loop();
+    //digitalWrite(wifiLed, HIGH);
+    delay(1);
+  } else {
+      if (!wifiConnected)
+        //digitalWrite(wifiLed, LOW);
+        wifiConnected = connectWifi();  // Initialise wifi connection
+      if (wifiConnected)
+        addDevices();
+    }
+}
+
+void loop() { 
+  alexa();
 }
 
 /**
@@ -392,7 +450,7 @@ void dhtMethod(void *pvParameters){
   while(1){
     //PIRSensor();
     dhtSensor();
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
   
 }
@@ -400,7 +458,8 @@ void dhtMethod(void *pvParameters){
 void iRreceiver(void *pvParameters){
   while(1){
     //PIRSensor();
-    irReceiver();
+    irReceive();
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }  
 }
 
@@ -412,6 +471,7 @@ void iRreceiver(void *pvParameters){
 void pir(void *pvParameters){
   while(1){
     PIRSensor();
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
   }
     
 }

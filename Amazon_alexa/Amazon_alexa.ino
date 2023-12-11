@@ -346,6 +346,6 @@ void loop() {
     if (wifiConnected)
       addDevices();   
   }
-  dhtSensor();
+  //dhtSensor();
   //PIRSensor();
 }
